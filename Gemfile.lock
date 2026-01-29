@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    og_pilot_ruby (0.1.0)
+    og_pilot_ruby (0.1.1)
       jwt (~> 3.1)
       zeitwerk (~> 2)
 
@@ -42,7 +42,7 @@ PLATFORMS
   ruby
 
 DEPENDENCIES
-  gem-release
+  gem-release (~> 2.2)
   irb
   minitest (~> 5.16)
   og_pilot_ruby!
