@@ -1,0 +1,8 @@
+Description:
+    Install og_pilot
+
+Example:
+    bin/rails generate og_pilot:install
+
+    This will perform the following:
+        Add an initializer file where you can overwrite the library's configuration
