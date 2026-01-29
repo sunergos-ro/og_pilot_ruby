@@ -4,7 +4,7 @@ require "json"
 require "net/http"
 require "uri"
 
-require_relative "errors"
+require_relative "error"
 require_relative "jwt_encoder"
 
 module OgPilotRuby
