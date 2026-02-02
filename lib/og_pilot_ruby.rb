@@ -25,9 +25,9 @@ module OgPilotRuby
       Client.new(config)
     end
 
-    def create_image(params = {}, json: false, iat: nil, headers: {}, **keyword_params)
+    def create_image(params = {}, json: false, iat: nil, headers: {}, default: false, **keyword_params)
       params ||= {}
-      client.create_image(params.merge(keyword_params), json:, iat:, headers:)
+      client.create_image(params.merge(keyword_params), json:, iat:, headers:, default:)
     end
   end
 end

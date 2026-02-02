@@ -57,6 +57,78 @@ image_url = OgPilotRuby.create_image(
 If you omit `iat`, OG Pilot will cache the image indefinitely. Provide an `iat` to
 refresh the cache daily.
 
+## Parameters
+
+All parameters are embedded in the signed JWT payload; the only query param is `token`.
+The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
+
+### Core parameters
+
+| Parameter     | Required | Default  | Description                                                   |
+|---------------|----------|----------|---------------------------------------------------------------|
+| `template`    | No       | `"page"` | Template name                                                 |
+| `title`       | Yes      | —        | Primary title text                                            |
+| `description` | No       | —        | Subtitle or supporting text                                   |
+| `logo_url`    | No       | —        | Logo image URL                                                |
+| `image_url`   | No       | —        | Hero image URL                                                |
+| `bg_color`    | No       | —        | Background color (hex format)                                 |
+| `text_color`  | No       | —        | Text color (hex format)                                       |
+| `iat`         | No       | —        | Issued-at timestamp for daily cache busting                   |
+| `path`        | No       | auto-set | Request path for image rendering context. When provided, it overrides auto-resolution (see [Path handling](#path-handling)) |
+
+### Ruby options
+
+| Option    | Default | Description                                                              |
+|-----------|---------|--------------------------------------------------------------------------|
+| `json`    | `false` | When `true`, sends `Accept: application/json` and parses the JSON response |
+| `headers` | —       | Additional HTTP headers to include with the request                      |
+| `default` | `false` | Forces `path` to `/` when `true`, unless a manual `path` is provided (see [Path handling](#path-handling)) |
+
+### Template-specific parameters
+
+| Template    | Parameters                                                                         |
+|-------------|------------------------------------------------------------------------------------|
+| `page`      | `title`, `description`                                                             |
+| `blog_post` | `title`, `author_name`, `author_avatar_url`, `publish_date` (ISO 8601)             |
+| `podcast`   | `title`, `episode_date` (ISO 8601)                                                 |
+| `product`   | `title`, `unique_selling_point`                                                    |
+| `event`     | `title`, `event_date`, `event_location`                                            |
+| `book`      | `title`, `description`, `book_author`, `book_series_number`, `book_description`, `book_genre` |
+| `portfolio` | `title`                                                                            |
+| `company`   | `title`, `company_logo_url`, `description` (note: `image_url` is ignored)          |
+
+### Path handling
+
+The `path` parameter enhances OG Pilot analytics by tracking which OG images perform better across different pages on your site. Without it, all analytics would be aggregated under the `/` path, making it difficult to understand how individual pages or content types are performing. By automatically capturing the request path, you get granular insights into click-through rates and engagement for each OG image.
+
+The client automatically injects a `path` parameter on every request:
+
+| Option           | Behavior                                                                                                                                                               |
+|------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `default: false` | Uses the current request path when available. In Rails, prefers `request.fullpath` (via the per-request store), then falls back to Rack/CGI env vars (`REQUEST_URI`, `PATH_INFO`). If no path can be determined, uses `/`. |
+| `default: true`  | Forces the `path` parameter to `/`, regardless of the current request (unless `path` is provided explicitly).                                                           |
+| `path: "/..."`   | Uses the provided path verbatim (normalized to start with `/`), overriding auto-resolution.                                                                             |
+
+**Example:**
+
+```ruby
+image_url = OgPilotRuby.create_image(
+  template: "blog_post",
+  title: "How to Build Amazing OG Images",
+  default: true
+)
+```
+
+Manual override:
+
+```ruby
+image_url = OgPilotRuby.create_image(
+  template: "page",
+  title: "Hello OG Pilot",
+  path: "/pricing?plan=pro"
+)
+```
+
 Fetch JSON metadata instead:
 
 ```ruby

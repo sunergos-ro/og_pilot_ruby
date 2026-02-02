@@ -15,7 +15,14 @@ module OgPilotRuby
       @config = config
     end
 
-    def create_image(params = {}, json: false, iat: nil, headers: {})
+    def create_image(params = {}, json: false, iat: nil, headers: {}, default: false)
+      params ||= {}
+      params = params.dup
+      # Always include a path; manual overrides win, otherwise resolve from the current request.
+      manual_path = params.key?(:path) ? params[:path] : params["path"]
+      params.delete("path") if params.key?("path")
+      params[:path] = manual_path.to_s.strip.empty? ? resolved_path(default:) : normalize_path(manual_path)
+
       uri = build_uri(params, iat:)
       response = request(uri, json:, headers:)
 
@@ -95,6 +102,80 @@ module OgPilotRuby
 
       def api_key_prefix
         api_key!.slice(0, 8)
+      end
+
+      # Rails-first path resolution with Rack/CGI env fallback.
+      def resolved_path(default:)
+        return "/" if default
+
+        path = rails_fullpath
+        path = env_fullpath if path.nil? || path.empty?
+        normalize_path(path)
+      end
+
+      def rails_fullpath
+        return unless defined?(::Rails)
+
+        request = rails_request_from_store || rails_request_from_thread
+        fullpath = request.fullpath if request&.respond_to?(:fullpath)
+        fullpath unless fullpath.nil? || fullpath.empty?
+      end
+
+      def rails_request_from_store
+        return unless defined?(::RequestStore) && ::RequestStore.respond_to?(:store)
+
+        store = ::RequestStore.store
+        store[:action_dispatch_request] ||
+          store[:"action_dispatch.request"] ||
+          store[:request]
+      end
+
+      def rails_request_from_thread
+        Thread.current[:og_pilot_request] ||
+          Thread.current[:action_dispatch_request] ||
+          Thread.current[:"action_dispatch.request"] ||
+          Thread.current[:request]
+      end
+
+      def env_fullpath
+        request_uri = ENV["REQUEST_URI"]
+        return request_uri unless request_uri.nil? || request_uri.empty?
+
+        original_fullpath = ENV["ORIGINAL_FULLPATH"]
+        return original_fullpath unless original_fullpath.nil? || original_fullpath.empty?
+
+        path_info = ENV["PATH_INFO"]
+        return build_fullpath_from_path_info(path_info) unless path_info.nil? || path_info.empty?
+
+        request_path = ENV["REQUEST_PATH"]
+        return request_path unless request_path.nil? || request_path.empty?
+
+        nil
+      end
+
+      def build_fullpath_from_path_info(path_info)
+        query = ENV["QUERY_STRING"].to_s
+        return path_info if query.empty?
+
+        "#{path_info}?#{query}"
+      end
+
+      def normalize_path(path)
+        cleaned = path.to_s.strip
+        return "/" if cleaned.empty?
+
+        cleaned = extract_request_uri(cleaned)
+        cleaned = "/#{cleaned}" unless cleaned.start_with?("/")
+        cleaned
+      end
+
+      def extract_request_uri(value)
+        return value unless value.start_with?("http://", "https://")
+
+        uri = URI.parse(value)
+        uri.request_uri || "/"
+      rescue URI::InvalidURIError
+        value
       end
   end
 end

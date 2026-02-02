@@ -29,11 +29,12 @@ class OgPilotRubyTest < Minitest::Test
   def test_module_level_create_image_delegates_to_client
     calls = {}
     client = Class.new do
-      define_method(:create_image) do |params = {}, json:, iat:, headers:|
+      define_method(:create_image) do |params = {}, json:, iat:, headers:, default:|
         calls[:params] = params
         calls[:json] = json
         calls[:iat] = iat
         calls[:headers] = headers
+        calls[:default] = default
         "ok"
       end
     end.new
@@ -52,17 +53,19 @@ class OgPilotRubyTest < Minitest::Test
       assert_equal true, calls[:json]
       assert_equal 123, calls[:iat]
       assert_equal({ "X-Test" => "1" }, calls[:headers])
+      assert_equal false, calls[:default]
     end
   end
 
   def test_rails_helper_delegates_to_module
     calls = {}
 
-    stub = lambda do |params = {}, json: false, iat: nil, headers: {}, **keyword_params|
+    stub = lambda do |params = {}, json: false, iat: nil, headers: {}, default: false, **keyword_params|
       calls[:params] = params
       calls[:json] = json
       calls[:iat] = iat
       calls[:headers] = headers
+      calls[:default] = default
       calls[:keyword_params] = keyword_params
       "ok"
     end
@@ -85,6 +88,7 @@ class OgPilotRubyTest < Minitest::Test
       assert_equal true, calls[:json]
       assert_equal 123, calls[:iat]
       assert_equal({ "X-Test" => "1" }, calls[:headers])
+      assert_equal false, calls[:default]
       assert_equal({ template: "page" }, calls[:keyword_params])
     end
   end
