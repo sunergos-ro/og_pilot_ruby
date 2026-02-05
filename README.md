@@ -1,5 +1,8 @@
 # OG Pilot Ruby
 
+> [!IMPORTANT]  
+> An active [OG Pilot](https://ogpilot.com?ref=og_pilot_ruby) subscription is required to use this gem.
+
 A small Ruby client for generating OG Pilot Open Graph images via signed JWTs.
 
 ## Installation
