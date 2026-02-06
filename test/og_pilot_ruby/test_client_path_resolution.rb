@@ -203,6 +203,64 @@ class TestClientPathResolution < Minitest::Test
     assert_equal "/foo/bar?query=1", path
   end
 
+  # Tests for strip_extensions
+
+  def test_normalize_path_strips_single_extension_when_enabled
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/docs.md")
+    assert_equal "/docs", path
+  end
+
+  def test_normalize_path_strips_multiple_extensions_when_enabled
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/archive.tar.gz")
+    assert_equal "/archive", path
+  end
+
+  def test_normalize_path_preserves_query_string_when_stripping
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/docs.md?ref=main")
+    assert_equal "/docs?ref=main", path
+  end
+
+  def test_normalize_path_does_not_strip_dotfiles
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/.hidden")
+    assert_equal "/.hidden", path
+  end
+
+  def test_normalize_path_does_not_strip_when_disabled
+    OgPilotRuby.config.strip_extensions = false
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/docs.md")
+    assert_equal "/docs.md", path
+  end
+
+  def test_normalize_path_strips_extension_in_nested_path
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/blog/my-post.html")
+    assert_equal "/blog/my-post", path
+  end
+
+  def test_normalize_path_does_not_strip_dots_in_middle_segments
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/my.app/dashboard")
+    assert_equal "/my.app/dashboard", path
+  end
+
+  def test_normalize_path_handles_path_without_extension
+    OgPilotRuby.config.strip_extensions = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/about")
+    assert_equal "/about", path
+  end
+
   private
 
   def clear_thread_storage

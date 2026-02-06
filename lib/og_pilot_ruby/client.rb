@@ -166,7 +166,30 @@ module OgPilotRuby
 
         cleaned = extract_request_uri(cleaned)
         cleaned = "/#{cleaned}" unless cleaned.start_with?("/")
+        cleaned = strip_extension(cleaned) if config.strip_extensions
         cleaned
+      end
+
+      def strip_extension(path)
+        path_part, query = path.split("?", 2)
+
+        dir = File.dirname(path_part)
+        base = File.basename(path_part)
+
+        # Don't strip dotfiles like "/.hidden" or "/.env" — only strip when
+        # there's a non-dot character before the first meaningful dot.
+        unless base.match?(/\A\./)  # starts with dot = hidden file, skip
+          base = base.sub(/\..+\z/, "")
+        end
+
+        stripped = if dir == "/" || dir == "."
+                     "/#{base}"
+                   else
+                     "#{dir}/#{base}"
+                   end
+        stripped = "/" if stripped.empty?
+
+        query ? "#{stripped}?#{query}" : stripped
       end
 
       def extract_request_uri(value)

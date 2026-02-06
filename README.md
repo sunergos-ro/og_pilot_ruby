@@ -28,6 +28,7 @@ Override as needed:
 OgPilotRuby.configure do |config|
   config.api_key = ENV.fetch("OG_PILOT_API_KEY")
   config.domain = ENV.fetch("OG_PILOT_DOMAIN")
+  # config.strip_extensions = true
 end
 ```
 
@@ -103,6 +104,17 @@ The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 | `iat`         | No       | —        | Issued-at timestamp for daily cache busting                   |
 | `path`        | No       | auto-set | Request path for image rendering context. When provided, it overrides auto-resolution (see [Path handling](#path-handling)) |
 
+### Configuration options
+
+| Option             | Default                 | Description                                                              |
+|--------------------|-------------------------|--------------------------------------------------------------------------|
+| `api_key`          | `ENV["OG_PILOT_API_KEY"]` | Your OG Pilot API key                                                   |
+| `domain`           | `ENV["OG_PILOT_DOMAIN"]`  | Your domain registered with OG Pilot                                    |
+| `base_url`         | `https://ogpilot.com`   | OG Pilot API base URL                                                    |
+| `open_timeout`     | `5`                     | Connection timeout in seconds                                            |
+| `read_timeout`     | `10`                    | Read timeout in seconds                                                  |
+| `strip_extensions` | `true`                  | When `true`, file extensions are stripped from resolved paths (see [Strip extensions](#strip-extensions)) |
+
 ### Ruby options
 
 | Option    | Default | Description                                                              |
@@ -161,10 +173,35 @@ Fetch JSON metadata instead:
 ```ruby
 payload = {
   template: "page",
-  title: "Hello OG Pilot"
+  title: "Hello OG Pilot"q
 }
 
 data = OgPilotRuby.create_image(**payload, json: true)
+```
+
+### Strip extensions
+
+When `strip_extensions` is enabled, the client removes file extensions from the
+last segment of every resolved path. This ensures that `/docs`, `/docs.md`,
+`/docs.php`, and `/docs.html` all resolve to `"/docs"`, so analytics are
+consolidated under a single path regardless of the URL extension.
+
+Multiple extensions are also stripped (`/archive.tar.gz` becomes `/archive`).
+Dotfiles like `/.hidden` are left unchanged. Query strings are preserved.
+
+```ruby
+OgPilotRuby.configure do |config|›
+  config.strip_extensions = true
+end
+
+# All of these resolve to path "/docs":
+OgPilotRuby.create_image(title: "Docs", path: "/docs")
+OgPilotRuby.create_image(title: "Docs", path: "/docs.md")
+OgPilotRuby.create_image(title: "Docs", path: "/docs.php")
+
+# Nested paths work too: /blog/my-post.html → /blog/my-post
+# Query strings are preserved: /docs.md?ref=main → /docs?ref=main
+# Dotfiles are unchanged: /.hidden stays /.hidden
 ```
 
 ## Development
