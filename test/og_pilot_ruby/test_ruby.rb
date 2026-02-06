@@ -41,7 +41,7 @@ class OgPilotRubyTest < Minitest::Test
 
     with_stubbed_singleton_method(OgPilotRuby, :client, -> { client }) do
       result = OgPilotRuby.create_image(
-        { title: "Hello" },
+        title: "Hello",
         json: true,
         iat: 123,
         headers: { "X-Test" => "1" },
@@ -60,13 +60,8 @@ class OgPilotRubyTest < Minitest::Test
   def test_rails_helper_delegates_to_module
     calls = {}
 
-    stub = lambda do |params = {}, json: false, iat: nil, headers: {}, default: false, **keyword_params|
-      calls[:params] = params
-      calls[:json] = json
-      calls[:iat] = iat
-      calls[:headers] = headers
-      calls[:default] = default
-      calls[:keyword_params] = keyword_params
+    stub = lambda do |**options|
+      calls[:options] = options
       "ok"
     end
 
@@ -76,7 +71,7 @@ class OgPilotRubyTest < Minitest::Test
       end
 
       result = klass.new.create_image(
-        { title: "Hello" },
+        title: "Hello",
         json: true,
         iat: 123,
         headers: { "X-Test" => "1" },
@@ -84,16 +79,97 @@ class OgPilotRubyTest < Minitest::Test
       )
 
       assert_equal "ok", result
-      assert_equal({ title: "Hello" }, calls[:params])
-      assert_equal true, calls[:json]
-      assert_equal 123, calls[:iat]
-      assert_equal({ "X-Test" => "1" }, calls[:headers])
-      assert_equal false, calls[:default]
-      assert_equal({ template: "page" }, calls[:keyword_params])
+      expected = {
+        title: "Hello",
+        json: true,
+        iat: 123,
+        headers: { "X-Test" => "1" },
+        template: "page"
+      }
+      assert_equal expected, calls[:options]
+    end
+  end
+
+  def test_module_level_template_helpers_delegate_with_template
+    helper_templates.each do |method_name, template|
+      calls = {}
+
+      stub = lambda do |**options|
+        calls[:options] = options
+        "ok"
+      end
+
+      with_stubbed_singleton_method(OgPilotRuby, :create_image, stub) do
+        result = OgPilotRuby.public_send(
+          method_name,
+          title: "Hello",
+          json: true,
+          iat: 123,
+          headers: { "X-Test" => "1" },
+          default: true,
+          template: "should_be_overridden"
+        )
+
+        assert_equal "ok", result
+        assert_equal template, calls[:options][:template],
+          "#{method_name} should force template to #{template.inspect}"
+        assert_equal "Hello", calls[:options][:title]
+        assert_equal true, calls[:options][:json]
+        assert_equal 123, calls[:options][:iat]
+        assert_equal({ "X-Test" => "1" }, calls[:options][:headers])
+        assert_equal true, calls[:options][:default]
+      end
+    end
+  end
+
+  def test_rails_helper_template_helpers_delegate_to_module
+    helper_templates.each_key do |method_name|
+      calls = {}
+
+      stub = lambda do |**options|
+        calls[:options] = options
+        "ok"
+      end
+
+      with_stubbed_singleton_method(OgPilotRuby, method_name, stub) do
+        klass = Class.new do
+          include OgPilotRuby::RailsHelper
+        end
+
+        result = klass.new.public_send(
+          method_name,
+          title: "Hello",
+          json: true,
+          iat: 123,
+          headers: { "X-Test" => "1" },
+          default: true,
+          description: "Example"
+        )
+
+        assert_equal "ok", result
+        assert_equal "Hello", calls[:options][:title]
+        assert_equal true, calls[:options][:json]
+        assert_equal 123, calls[:options][:iat]
+        assert_equal({ "X-Test" => "1" }, calls[:options][:headers])
+        assert_equal true, calls[:options][:default]
+        assert_equal "Example", calls[:options][:description]
+      end
     end
   end
 
   private
+
+  def helper_templates
+    {
+      create_blog_post_image: "blog_post",
+      create_podcast_image: "podcast",
+      create_product_image: "product",
+      create_event_image: "event",
+      create_book_image: "book",
+      create_company_image: "company",
+      create_portfolio_image: "portfolio"
+    }
+  end
 
   def with_stubbed_singleton_method(klass, method, replacement)
     singleton = klass.singleton_class

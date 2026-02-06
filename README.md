@@ -60,6 +60,30 @@ image_url = OgPilotRuby.create_image(
 If you omit `iat`, OG Pilot will cache the image indefinitely. Provide an `iat` to
 refresh the cache daily.
 
+### Template helpers
+
+`create_image` defaults to the `page` template when `template` is omitted.
+
+Use these helpers to force a specific template:
+
+- `OgPilotRuby.create_blog_post_image(...)`
+- `OgPilotRuby.create_podcast_image(...)`
+- `OgPilotRuby.create_product_image(...)`
+- `OgPilotRuby.create_event_image(...)`
+- `OgPilotRuby.create_book_image(...)`
+- `OgPilotRuby.create_company_image(...)`
+- `OgPilotRuby.create_portfolio_image(...)`
+
+Example:
+
+```ruby
+image_url = OgPilotRuby.create_blog_post_image(
+  title: "How to Build Amazing OG Images",
+  author_name: "Jane Smith",
+  publish_date: "2024-01-15"
+)
+```
+
 ## Parameters
 
 All parameters are embedded in the signed JWT payload; the only query param is `token`.
