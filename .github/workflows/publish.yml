@@ -18,6 +18,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
+          ruby-version: 4.0
           bundler-cache: true
 
       - name: Verify release tag matches gem version
