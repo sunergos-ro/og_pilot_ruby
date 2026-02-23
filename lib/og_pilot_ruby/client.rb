@@ -43,7 +43,7 @@ module OgPilotRuby
         http.open_timeout = config.open_timeout if config.open_timeout
         http.read_timeout = config.read_timeout if config.read_timeout
 
-        request = Net::HTTP::Get.new(uri)
+        request = Net::HTTP::Post.new(uri)
         request["Accept"] = "application/json" if json
         headers.each { |key, value| request[key] = value }
 

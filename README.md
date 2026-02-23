@@ -41,7 +41,7 @@ bin/rails og_pilot_ruby:install
 
 ## Usage
 
-Generate an image URL (follows the redirect returned by OG Pilot). In Rails, you can skip the `require`:
+Generate an image URL (the client sends a signed `POST` request, then follows the redirect returned by OG Pilot). In Rails, you can skip the `require`:
 
 ```ruby
 require "og_pilot_ruby"
@@ -87,7 +87,7 @@ image_url = OgPilotRuby.create_blog_post_image(
 
 ## Parameters
 
-All parameters are embedded in the signed JWT payload; the only query param is `token`.
+The client sends `POST /api/v1/images` requests. All parameters are embedded in the signed JWT payload; the only query param is `token`.
 The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 
 ### Core parameters
