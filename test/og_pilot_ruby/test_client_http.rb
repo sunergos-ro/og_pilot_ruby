@@ -22,16 +22,27 @@ class TestClientHttp < Minitest::Test
   end
 
   def test_create_image_posts_to_images_endpoint_and_returns_location
-    response = build_response(
+    redirect_response = build_response(
       Net::HTTPFound,
       code: 302,
       message: "Found",
       headers: { "Location" => "https://cdn.ogpilot.com/hello.png" }
     )
-    fake_http = FakeHttp.new(response)
+    final_response = build_response(Net::HTTPOK, code: 200, message: "OK", body: "")
+    origin_http = FakeHttp.new([redirect_response])
+    cdn_http = FakeHttp.new([final_response])
     jwt_call = {}
+    http_calls = []
 
-    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+    with_stubbed_singleton_method(Net::HTTP, :new, lambda { |host, port|
+      http_calls << [host, port]
+      case host
+      when "ogpilot.com" then origin_http
+      when "cdn.ogpilot.com" then cdn_http
+      else
+        raise "Unexpected host: #{host}"
+      end
+    }) do
       with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, lambda { |payload, api_key|
         jwt_call[:payload] = payload
         jwt_call[:api_key] = api_key
@@ -51,11 +62,18 @@ class TestClientHttp < Minitest::Test
       end
     end
 
-    request = fake_http.last_request
-    assert_instance_of Net::HTTP::Post, request
-    assert_equal "/api/v1/images?token=signed-token", request.path
-    assert_equal "1", request["X-Test"]
-    refute_equal "application/json", request["Accept"]
+    origin_request = origin_http.last_request
+    assert_instance_of Net::HTTP::Post, origin_request
+    assert_equal "/api/v1/images?token=signed-token", origin_request.path
+    assert_equal "1", origin_request["X-Test"]
+    refute_equal "application/json", origin_request["Accept"]
+
+    redirected_request = cdn_http.last_request
+    assert_instance_of Net::HTTP::Get, redirected_request
+    assert_equal "/hello.png", redirected_request.path
+    assert_equal "1", redirected_request["X-Test"]
+    refute_equal "application/json", redirected_request["Accept"]
+    assert_equal [["ogpilot.com", 443], ["cdn.ogpilot.com", 443]], http_calls
 
     assert_equal "test_api_key_12345678", jwt_call[:api_key]
     assert_equal "example.com", jwt_call[:payload][:iss]
@@ -73,7 +91,7 @@ class TestClientHttp < Minitest::Test
       message: "OK",
       body: '{"image_url":"https://cdn.ogpilot.com/hello.png"}'
     )
-    fake_http = FakeHttp.new(response)
+    fake_http = FakeHttp.new([response])
 
     with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
       with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, ->(_payload, _api_key) { "json-token" }) do
@@ -97,7 +115,7 @@ class TestClientHttp < Minitest::Test
 
   def test_create_image_without_location_falls_back_to_signed_uri
     response = build_response(Net::HTTPOK, code: 200, message: "OK", body: "")
-    fake_http = FakeHttp.new(response)
+    fake_http = FakeHttp.new([response])
 
     with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
       with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, ->(_payload, _api_key) { "no-location-token" }) do
@@ -145,16 +163,22 @@ class TestClientHttp < Minitest::Test
 
   class FakeHttp
     attr_accessor :use_ssl, :open_timeout, :read_timeout
-    attr_reader :last_request
+    attr_reader :requests
 
-    def initialize(response)
-      @response = response
-      @last_request = nil
+    def initialize(responses)
+      @responses = responses.dup
+      @requests = []
     end
 
     def request(request)
-      @last_request = request
-      @response
+      @requests << request
+      raise "No fake response configured for #{request.method} #{request.path}" if @responses.empty?
+
+      @responses.shift
+    end
+
+    def last_request
+      @requests.last
     end
   end
 end

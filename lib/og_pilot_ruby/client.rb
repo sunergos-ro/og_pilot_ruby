@@ -10,6 +10,7 @@ require_relative "jwt_encoder"
 module OgPilotRuby
   class Client
     ENDPOINT_PATH = "/api/v1/images"
+    MAX_REDIRECTS = 5
 
     def initialize(config)
       @config = config
@@ -24,12 +25,12 @@ module OgPilotRuby
       params[:path] = manual_path.to_s.strip.empty? ? resolved_path(default:) : normalize_path(manual_path)
 
       uri = build_uri(params, iat:)
-      response = request(uri, json:, headers:)
+      response, final_uri = request(uri, json:, headers:)
 
       if json
         JSON.parse(response.body)
       else
-        response["Location"] || uri.to_s
+        response["Location"] || final_uri.to_s
       end
     end
 
@@ -37,18 +38,35 @@ module OgPilotRuby
 
       attr_reader :config
 
-      def request(uri, json:, headers:)
+      def request(uri, json:, headers:, method: :post, redirects_left: MAX_REDIRECTS)
         http = Net::HTTP.new(uri.host, uri.port)
         http.use_ssl = uri.scheme == "https"
         http.open_timeout = config.open_timeout if config.open_timeout
         http.read_timeout = config.read_timeout if config.read_timeout
 
-        request = Net::HTTP::Post.new(uri)
+        request = build_http_request(method, uri)
         request["Accept"] = "application/json" if json
         headers.each { |key, value| request[key] = value }
 
         response = http.request(request)
-        return response unless response.is_a?(Net::HTTPClientError) || response.is_a?(Net::HTTPServerError)
+        if response.is_a?(Net::HTTPRedirection)
+          location = response["Location"]
+          if location && !location.empty?
+            raise OgPilotRuby::RequestError, "OG Pilot request failed with too many redirects" if redirects_left <= 0
+
+            redirect_uri = URI.join(uri.to_s, location)
+            redirect_method = redirect_method_for(response, method)
+            return request(
+              redirect_uri,
+              json:,
+              headers:,
+              method: redirect_method,
+              redirects_left: redirects_left - 1
+            )
+          end
+        end
+
+        return [response, uri] unless response.is_a?(Net::HTTPClientError) || response.is_a?(Net::HTTPServerError)
 
         raise OgPilotRuby::RequestError, "OG Pilot request failed with status #{response.code}: #{response.body}"
       rescue OpenSSL::SSL::SSLError => e
@@ -61,6 +79,24 @@ module OgPilotRuby
         raise OgPilotRuby::RequestError, "OG Pilot request failed with bad request: #{e.message}"
       rescue Net::HTTPUnauthorized => e
         raise OgPilotRuby::RequestError, "OG Pilot request failed with unauthorized: #{e.message}"
+      end
+
+      def build_http_request(method, uri)
+        case method
+        when :post
+          Net::HTTP::Post.new(uri)
+        when :get
+          Net::HTTP::Get.new(uri)
+        else
+          raise ArgumentError, "Unsupported HTTP method: #{method.inspect}"
+        end
+      end
+
+      def redirect_method_for(response, current_method)
+        return current_method unless current_method == :post
+
+        status_code = response.code.to_i
+        [307, 308].include?(status_code) ? :post : :get
       end
 
       def build_uri(params, iat:)

@@ -1,0 +1,43 @@
+name: Publish Ruby Gem
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      - name: Verify release tag matches gem version
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          TAG_VERSION="${TAG#v}"
+          GEM_VERSION="$(ruby -e 'spec = Gem::Specification.load("og_pilot_ruby.gemspec"); print spec.version')"
+          if [ "$TAG_VERSION" != "$GEM_VERSION" ]; then
+            echo "Release tag (${TAG}) does not match gem version (${GEM_VERSION})."
+            exit 1
+          fi
+
+      - name: Build gem
+        run: bundle exec rake build
+
+      - name: Publish gem to RubyGems
+        run: |
+          GEM_FILE="$(ls pkg/*.gem | sort | tail -n 1)"
+          echo "Pushing ${GEM_FILE}"
+          gem push "${GEM_FILE}"
+        env:
+          RUBYGEMS_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
+          GEM_HOST_API_KEY: ${{ secrets.RUBYGEMS_API_KEY }}
