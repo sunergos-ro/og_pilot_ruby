@@ -135,6 +135,54 @@ class TestClientHttp < Minitest::Test
     assert_equal "/api/v1/images?token=no-location-token", request.path
   end
 
+  def test_create_image_returns_nil_and_logs_error_when_request_fails
+    response = build_response(
+      Net::HTTPInternalServerError,
+      code: 500,
+      message: "Internal Server Error",
+      body: "boom"
+    )
+    fake_http = FakeHttp.new([response])
+    fake_logger = FakeLogger.new
+
+    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+      with_stubbed_singleton_method(Logger, :new, ->(_device) { fake_logger }) do
+        result = @client.create_image(
+          {
+            title: "Hello OG Pilot",
+            path: "/failing-path"
+          }
+        )
+
+        assert_nil result
+      end
+    end
+
+    assert_equal 1, fake_logger.error_messages.length
+    assert_includes fake_logger.error_messages.first, "OgPilotRuby create_image failed (mode=url):"
+    assert_includes fake_logger.error_messages.first, "OgPilotRuby::RequestError"
+  end
+
+  def test_create_image_with_json_returns_fallback_hash_and_logs_error_for_validation_failure
+    fake_logger = FakeLogger.new
+
+    with_stubbed_singleton_method(Logger, :new, ->(_device) { fake_logger }) do
+      result = @client.create_image(
+        {
+          template: "page",
+          path: "/missing-title"
+        },
+        json: true
+      )
+
+      assert_equal({ "image_url" => nil }, result)
+    end
+
+    assert_equal 1, fake_logger.error_messages.length
+    assert_includes fake_logger.error_messages.first, "OgPilotRuby create_image failed (mode=json):"
+    assert_includes fake_logger.error_messages.first, "ArgumentError"
+  end
+
   private
 
   def build_response(klass, code:, message:, body: "", headers: {})
@@ -179,6 +227,18 @@ class TestClientHttp < Minitest::Test
 
     def last_request
       @requests.last
+    end
+  end
+
+  class FakeLogger
+    attr_reader :error_messages
+
+    def initialize
+      @error_messages = []
+    end
+
+    def error(message)
+      @error_messages << message
     end
   end
 end

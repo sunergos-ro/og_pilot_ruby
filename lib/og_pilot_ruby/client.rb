@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "logger"
 require "net/http"
 require "uri"
 
@@ -32,11 +33,30 @@ module OgPilotRuby
       else
         response["Location"] || final_uri.to_s
       end
+    rescue StandardError => e
+      log_create_image_failure(e, json:)
+      json ? { "image_url" => nil } : nil
     end
 
     private
 
       attr_reader :config
+
+      def log_create_image_failure(error, json:)
+        mode = json ? "json" : "url"
+        message = "OgPilotRuby create_image failed (mode=#{mode}): #{error.class}: #{error.message}"
+        create_image_logger&.error(message)
+      rescue StandardError
+        nil
+      end
+
+      def create_image_logger
+        if defined?(::Rails) && ::Rails.respond_to?(:logger) && ::Rails.logger
+          ::Rails.logger
+        else
+          @create_image_logger ||= Logger.new($stderr)
+        end
+      end
 
       def request(uri, json:, headers:, method: :post, redirects_left: MAX_REDIRECTS)
         http = Net::HTTP.new(uri.host, uri.port)

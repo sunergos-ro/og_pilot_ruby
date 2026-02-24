@@ -61,6 +61,15 @@ image_url = OgPilotRuby.create_image(
 If you omit `iat`, OG Pilot will cache the image indefinitely. Provide an `iat` to
 refresh the cache daily.
 
+### Fail-safe behavior
+
+`create_image` is non-blocking. If any error occurs (request, configuration,
+validation, parsing, etc.), the gem does not raise to your app and logs an
+error-level message instead.
+
+- URL mode (`json: false`, default): returns `nil`
+- JSON mode (`json: true`): returns `{ "image_url" => nil }`
+
 ### Template helpers
 
 `create_image` defaults to the `page` template when `template` is omitted.
@@ -119,7 +128,7 @@ The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 
 | Option    | Default | Description                                                              |
 |-----------|---------|--------------------------------------------------------------------------|
-| `json`    | `false` | When `true`, sends `Accept: application/json` and parses the JSON response |
+| `json`    | `false` | When `true`, sends `Accept: application/json` and parses the JSON response. On failure, returns `{ "image_url" => nil }` |
 | `headers` | —       | Additional HTTP headers to include with the request                      |
 | `default` | `false` | Forces `path` to `/` when `true`, unless a manual `path` is provided (see [Path handling](#path-handling)) |
 
@@ -173,7 +182,7 @@ Fetch JSON metadata instead:
 ```ruby
 payload = {
   template: "page",
-  title: "Hello OG Pilot"q
+  title: "Hello OG Pilot"
 }
 
 data = OgPilotRuby.create_image(**payload, json: true)
@@ -190,7 +199,7 @@ Multiple extensions are also stripped (`/archive.tar.gz` becomes `/archive`).
 Dotfiles like `/.hidden` are left unchanged. Query strings are preserved.
 
 ```ruby
-OgPilotRuby.configure do |config|›
+OgPilotRuby.configure do |config|
   config.strip_extensions = true
 end
 
