@@ -29,6 +29,8 @@ OgPilotRuby.configure do |config|
   config.api_key = ENV.fetch("OG_PILOT_API_KEY")
   config.domain = ENV.fetch("OG_PILOT_DOMAIN")
   # config.strip_extensions = true
+  # config.cache_store = Rails.cache
+  # config.cache_ttl = 86_400
 end
 ```
 
@@ -60,6 +62,12 @@ image_url = OgPilotRuby.create_image(
 
 If you omit `iat`, OG Pilot will cache the image indefinitely. Provide an `iat` to
 refresh the cache daily.
+
+When `config.cache_store` is set, the client can also cache generated responses
+locally:
+
+- With `iat`: cache for `cache_ttl` seconds
+- Without `iat`: cache for `7 * cache_ttl` seconds
 
 ### Fail-safe behavior
 
@@ -558,6 +566,8 @@ The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 | `open_timeout`     | `5`                     | Connection timeout in seconds                                            |
 | `read_timeout`     | `10`                    | Read timeout in seconds                                                  |
 | `strip_extensions` | `true`                  | When `true`, file extensions are stripped from resolved paths (see [Strip extensions](#strip-extensions)) |
+| `cache_store`      | `nil`                   | Optional cache backend with `read`/`write` (for example `Rails.cache`)  |
+| `cache_ttl`        | `86400`                 | Cache TTL in seconds when `cache_store` is enabled                       |
 
 ### Ruby options
 
@@ -623,6 +633,26 @@ payload = {
 
 data = OgPilotRuby.create_image(**payload, json: true)
 ```
+
+### Local caching
+
+You can optionally enable client-side caching to avoid repeated API calls for
+identical payloads:
+
+```ruby
+OgPilotRuby.configure do |config|
+  config.cache_store = Rails.cache
+  config.cache_ttl = 86_400 # 1 day
+end
+```
+
+Cache key inputs include the normalized payload, `iat`, output mode (`json`
+vs URL), and configured domain.
+
+TTL behavior:
+
+- If `iat` is present: cached for `cache_ttl`
+- If `iat` is omitted: cached for `7 * cache_ttl`
 
 ### Strip extensions
 

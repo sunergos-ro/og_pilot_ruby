@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "digest"
 require "json"
 require "logger"
 require "net/http"
@@ -25,14 +26,24 @@ module OgPilotRuby
       params.delete("path") if params.key?("path")
       params[:path] = manual_path.to_s.strip.empty? ? resolved_path(default:) : normalize_path(manual_path)
 
+      cache_key = cache_key_for(params, iat:, json:)
+      if config.cache_store && cache_key
+        cached = read_cached(cache_key)
+        return cached if cached
+      end
+
       uri = build_uri(params, iat:)
       response, final_uri = request(uri, json:, headers:)
 
-      if json
+      result = if json
         JSON.parse(response.body)
       else
         response["Location"] || final_uri.to_s
       end
+
+      write_cached(cache_key, result, iat:) if config.cache_store && cache_key && result
+
+      result
     rescue StandardError => e
       log_create_image_failure(e, json:)
       json ? { "image_url" => nil } : nil
@@ -41,6 +52,25 @@ module OgPilotRuby
     private
 
       attr_reader :config
+
+      def cache_key_for(params, iat:, json:)
+        key_data = params.transform_keys(&:to_sym).merge(iat: iat, json: json, domain: domain!)
+        normalized = key_data.sort_by { |k, _| k.to_s }.to_h
+        "og_pilot:#{Digest::SHA256.hexdigest(normalized.to_json)[0, 16]}"
+      end
+
+      def read_cached(cache_key)
+        config.cache_store.read(cache_key)
+      rescue StandardError
+        nil
+      end
+
+      def write_cached(cache_key, result, iat:)
+        ttl = iat ? config.cache_ttl : (7 * config.cache_ttl)
+        config.cache_store.write(cache_key, result, expires_in: ttl)
+      rescue StandardError
+        nil
+      end
 
       def log_create_image_failure(error, json:)
         mode = json ? "json" : "url"
