@@ -683,20 +683,25 @@ OgPilotRuby.create_image(title: "Docs", path: "/docs.php")
 ### Strip query parameters
 
 When `strip_query_parameters` is enabled, the client drops the query string from
-every resolved path before it signs the payload. This keeps analytics grouped
-under the canonical path even when links include tracking or pagination
-parameters. It works alongside `strip_extensions`, so
-`/archive.tar.gz?ref=campaign` resolves to `"/archive"` when both are enabled.
+every resolved path before it signs the payload, so `/docs?ref=main` and
+`/docs?ref=next` are normalized to `"/docs"`. When both `strip_extensions` and
+`strip_query_parameters` are enabled, the extension is removed first and the
+query string is removed afterward, which means `/archive.tar.gz?ref=campaign`
+becomes `"/archive"`.
 
 ```ruby
 OgPilotRuby.configure do |config|
   config.strip_query_parameters = true
+  config.strip_extensions = true
 end
 
 # These resolve to "/docs":
 OgPilotRuby.create_image(title: "Docs", path: "/docs")
 OgPilotRuby.create_image(title: "Docs", path: "/docs?ref=main")
-OgPilotRuby.create_image(title: "Docs", path: "https://example.com/docs?ref=campaign")
+
+# Both of these resolve to "/archive":
+OgPilotRuby.create_image(title: "Archive", path: "/archive.tar.gz")
+OgPilotRuby.create_image(title: "Archive", path: "/archive.tar.gz?ref=campaign")
 ```
 
 ## Development
