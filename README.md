@@ -566,6 +566,7 @@ The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 | `open_timeout`     | `5`                     | Connection timeout in seconds                                            |
 | `read_timeout`     | `10`                    | Read timeout in seconds                                                  |
 | `strip_extensions` | `true`                  | When `true`, file extensions are stripped from resolved paths (see [Strip extensions](#strip-extensions)) |
+| `strip_query_parameters` | `false`           | When `true`, query strings are removed from resolved paths before signing (see [Strip query parameters](#strip-query-parameters)) |
 | `cache_store`      | `nil`                   | Optional cache backend with `read`/`write` (for example `Rails.cache`)  |
 | `cache_ttl`        | `86400`                 | Cache TTL in seconds when `cache_store` is enabled                       |
 
@@ -677,6 +678,25 @@ OgPilotRuby.create_image(title: "Docs", path: "/docs.php")
 # Nested paths work too: /blog/my-post.html → /blog/my-post
 # Query strings are preserved: /docs.md?ref=main → /docs?ref=main
 # Dotfiles are unchanged: /.hidden stays /.hidden
+```
+
+### Strip query parameters
+
+When `strip_query_parameters` is enabled, the client drops the query string from
+every resolved path before it signs the payload. This keeps analytics grouped
+under the canonical path even when links include tracking or pagination
+parameters. It works alongside `strip_extensions`, so
+`/archive.tar.gz?ref=campaign` resolves to `"/archive"` when both are enabled.
+
+```ruby
+OgPilotRuby.configure do |config|
+  config.strip_query_parameters = true
+end
+
+# These resolve to "/docs":
+OgPilotRuby.create_image(title: "Docs", path: "/docs")
+OgPilotRuby.create_image(title: "Docs", path: "/docs?ref=main")
+OgPilotRuby.create_image(title: "Docs", path: "https://example.com/docs?ref=campaign")
 ```
 
 ## Development

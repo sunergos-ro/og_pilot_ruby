@@ -261,6 +261,21 @@ class TestClientPathResolution < Minitest::Test
     assert_equal "/about", path
   end
 
+  def test_normalize_path_drops_query_string_when_strip_query_parameters_enabled
+    OgPilotRuby.config.strip_query_parameters = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/docs?ref=main")
+    assert_equal "/docs", path
+  end
+
+  def test_normalize_path_strips_extensions_and_query_when_both_enabled
+    OgPilotRuby.config.strip_extensions = true
+    OgPilotRuby.config.strip_query_parameters = true
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+    path = client.send(:normalize_path, "/archive.tar.gz?ref=main")
+    assert_equal "/archive", path
+  end
+
   private
 
   def clear_thread_storage

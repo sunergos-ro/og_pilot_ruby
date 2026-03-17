@@ -9,4 +9,5 @@ OgPilotRuby.configure do |config|
   # config.open_timeout = 5
   # config.read_timeout = 10
   # config.strip_extensions = true
+  # config.strip_query_parameters = true
 end

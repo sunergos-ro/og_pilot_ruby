@@ -253,6 +253,7 @@ module OgPilotRuby
         cleaned = extract_request_uri(cleaned)
         cleaned = "/#{cleaned}" unless cleaned.start_with?("/")
         cleaned = strip_extension(cleaned) if config.strip_extensions
+        cleaned = remove_query_parameters(cleaned) if config.strip_query_parameters
         cleaned
       end
 
@@ -276,6 +277,11 @@ module OgPilotRuby
         stripped = "/" if stripped.empty?
 
         query ? "#{stripped}?#{query}" : stripped
+      end
+
+      def remove_query_parameters(path)
+        stripped = path.split("?", 2).first
+        stripped.empty? ? "/" : stripped
       end
 
       def extract_request_uri(value)
