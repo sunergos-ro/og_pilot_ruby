@@ -183,6 +183,67 @@ class TestClientHttp < Minitest::Test
     assert_includes fake_logger.error_messages.first, "ArgumentError"
   end
 
+  def test_create_image_returns_nil_when_redirected_to_processing_placeholder
+    redirect_response = build_response(
+      Net::HTTPFound,
+      code: 302,
+      message: "Found",
+      headers: { "Location" => "https://ogpilot.com/status/processing.jpg" }
+    )
+    fake_http = FakeHttp.new([redirect_response])
+
+    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+      with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, ->(_payload, _api_key) { "token" }) do
+        result = @client.create_image({ title: "Hello", path: "/test" })
+
+        assert_nil result
+      end
+    end
+
+    # Should NOT follow the redirect (only one request made)
+    assert_equal 1, fake_http.requests.length
+  end
+
+  def test_create_image_returns_nil_when_redirected_to_failed_placeholder
+    redirect_response = build_response(
+      Net::HTTPFound,
+      code: 302,
+      message: "Found",
+      headers: { "Location" => "https://ogpilot.com/status/failed.jpg" }
+    )
+    fake_http = FakeHttp.new([redirect_response])
+
+    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+      with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, ->(_payload, _api_key) { "token" }) do
+        result = @client.create_image({ title: "Hello", path: "/test" })
+
+        assert_nil result
+      end
+    end
+  end
+
+  def test_create_image_does_not_cache_processing_placeholder
+    OgPilotRuby.configure { |c| c.cache_store = FakeCacheStore.new }
+    client = OgPilotRuby::Client.new(OgPilotRuby.config)
+
+    redirect_response = build_response(
+      Net::HTTPFound,
+      code: 302,
+      message: "Found",
+      headers: { "Location" => "https://ogpilot.com/status/processing.jpg" }
+    )
+    fake_http = FakeHttp.new([redirect_response])
+
+    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+      with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, ->(_payload, _api_key) { "token" }) do
+        result = client.create_image({ title: "Hello", path: "/test" })
+
+        assert_nil result
+        assert_empty OgPilotRuby.config.cache_store.store
+      end
+    end
+  end
+
   private
 
   def build_response(klass, code:, message:, body: "", headers: {})
@@ -227,6 +288,22 @@ class TestClientHttp < Minitest::Test
 
     def last_request
       @requests.last
+    end
+  end
+
+  class FakeCacheStore
+    attr_reader :store
+
+    def initialize
+      @store = {}
+    end
+
+    def read(key)
+      @store[key]
+    end
+
+    def write(key, value, **_options)
+      @store[key] = value
     end
   end
 

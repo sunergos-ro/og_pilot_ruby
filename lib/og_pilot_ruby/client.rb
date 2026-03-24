@@ -38,7 +38,8 @@ module OgPilotRuby
       result = if json
         JSON.parse(response.body)
       else
-        response["Location"] || final_uri.to_s
+        url = response["Location"] || final_uri.to_s
+        status_placeholder?(url) ? nil : url
       end
 
       write_cached(cache_key, result, iat:) if config.cache_store && cache_key && result
@@ -102,6 +103,11 @@ module OgPilotRuby
         if response.is_a?(Net::HTTPRedirection)
           location = response["Location"]
           if location && !location.empty?
+            # Status placeholders (processing/failed) mean the image isn't ready yet.
+            # Return the redirect response as-is so the caller can detect this and
+            # avoid caching a temporary placeholder URL.
+            return [response, URI.join(uri.to_s, location)] if status_placeholder?(location)
+
             raise OgPilotRuby::RequestError, "OG Pilot request failed with too many redirects" if redirects_left <= 0
 
             redirect_uri = URI.join(uri.to_s, location)
@@ -129,6 +135,10 @@ module OgPilotRuby
         raise OgPilotRuby::RequestError, "OG Pilot request failed with bad request: #{e.message}"
       rescue Net::HTTPUnauthorized => e
         raise OgPilotRuby::RequestError, "OG Pilot request failed with unauthorized: #{e.message}"
+      end
+
+      def status_placeholder?(url)
+        url.to_s.match?(%r{/status/(?:processing|failed)\.(?:jpg|png)\z})
       end
 
       def build_http_request(method, uri)

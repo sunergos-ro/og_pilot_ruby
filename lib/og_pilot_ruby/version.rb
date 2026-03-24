@@ -1,5 +1,5 @@
 # frozen_string_literal: true
 
 module OgPilotRuby
-  VERSION = "0.4.6"
+  VERSION = "0.4.7"
 end
