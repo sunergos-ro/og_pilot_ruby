@@ -29,6 +29,9 @@ OgPilotRuby.configure do |config|
   config.api_key = ENV.fetch("OG_PILOT_API_KEY")
   config.domain = ENV.fetch("OG_PILOT_DOMAIN")
   # config.strip_extensions = true
+  # config.image_type = "webp"
+  # config.quality = 82
+  # config.max_bytes = 220_000
   # config.cache_store = Rails.cache
   # config.cache_ttl = 86_400
 end
@@ -62,6 +65,19 @@ image_url = OgPilotRuby.create_image(
 
 If you omit `iat`, OG Pilot will cache the image indefinitely. Provide an `iat` to
 refresh the cache daily.
+
+For the same delivery settings on every request, configure them once:
+
+```ruby
+OgPilotRuby.configure do |config|
+  config.image_type = "webp"
+  config.quality = 82
+  config.max_bytes = 220_000
+end
+```
+
+Per-call `image_type`, `quality`, and `max_bytes` values still override those
+defaults when you need a one-off delivery profile.
 
 When `config.cache_store` is set, the client can also cache generated responses
 locally:
@@ -553,6 +569,9 @@ The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 | `image_url`   | No       | —        | Hero image URL                                                |
 | `bg_color`    | No       | —        | Background color (hex format)                                 |
 | `text_color`  | No       | —        | Text color (hex format)                                       |
+| `image_type`  | No       | —        | Delivered image format: `jpeg`, `png`, `webp`, or `gif`       |
+| `quality`     | No       | —        | Delivered image quality from `1` to `100`                     |
+| `max_bytes`   | No       | —        | Maximum delivered image size in bytes                         |
 | `iat`         | No       | —        | Issued-at timestamp for daily cache busting                   |
 | `path`        | No       | auto-set | Request path for image rendering context. When provided, it overrides auto-resolution (see [Path handling](#path-handling)) |
 
@@ -567,6 +586,9 @@ The gem handles `iss` (domain) and `sub` (API key prefix) automatically.
 | `read_timeout`     | `10`                    | Read timeout in seconds                                                  |
 | `strip_extensions` | `true`                  | When `true`, file extensions are stripped from resolved paths (see [Strip extensions](#strip-extensions)) |
 | `strip_query_parameters` | `false`           | When `true`, query strings are removed from resolved paths before signing (see [Strip query parameters](#strip-query-parameters)) |
+| `image_type`       | `nil`                   | Default delivered image format: `jpeg`, `png`, `webp`, or `gif`          |
+| `quality`          | `nil`                   | Default delivered image quality from `1` to `100`                        |
+| `max_bytes`        | `nil`                   | Default maximum delivered image size in bytes                            |
 | `cache_store`      | `nil`                   | Optional cache backend with `read`/`write` (for example `Rails.cache`)  |
 | `cache_ttl`        | `86400`                 | Cache TTL in seconds when `cache_store` is enabled                       |
 

@@ -17,6 +17,9 @@ class OgPilotRubyTest < Minitest::Test
     assert_equal "testkey12345678", config.api_key
     assert_equal "example.com", config.domain
     assert_equal false, config.strip_query_parameters
+    assert_nil config.image_type
+    assert_nil config.quality
+    assert_nil config.max_bytes
   ensure
     ENV.delete("OG_PILOT_API_KEY")
     ENV.delete("OG_PILOT_DOMAIN")

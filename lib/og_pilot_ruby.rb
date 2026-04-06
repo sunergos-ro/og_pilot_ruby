@@ -59,6 +59,9 @@ module OgPilotRuby
     #   image_url   - String hero image URL.
     #   bg_color    - String background color (hex format).
     #   text_color  - String text color (hex format).
+    #   image_type  - String delivered image format (jpeg/png/webp/gif).
+    #   quality     - Integer delivered image quality (1-100).
+    #   max_bytes   - Integer maximum delivered image size in bytes.
     #   path        - String request path for analytics context.
     #
     # == Request options

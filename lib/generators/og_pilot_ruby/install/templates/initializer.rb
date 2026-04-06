@@ -10,4 +10,7 @@ OgPilotRuby.configure do |config|
   # config.read_timeout = 10
   # config.strip_extensions = true
   # config.strip_query_parameters = true
+  # config.image_type = "webp"
+  # config.quality = 82
+  # config.max_bytes = 220_000
 end

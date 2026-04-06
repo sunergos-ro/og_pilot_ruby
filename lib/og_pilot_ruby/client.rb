@@ -20,7 +20,7 @@ module OgPilotRuby
 
     def create_image(params = {}, json: false, iat: nil, headers: {}, default: false)
       params ||= {}
-      params = params.dup
+      params = apply_configured_image_defaults(params.dup)
       # Always include a path; manual overrides win, otherwise resolve from the current request.
       manual_path = params.key?(:path) ? params[:path] : params["path"]
       params.delete("path") if params.key?("path")
@@ -176,6 +176,21 @@ module OgPilotRuby
 
         validate_payload!(symbolized)
         symbolized
+      end
+
+      def apply_configured_image_defaults(params)
+        {
+          image_type: config.image_type,
+          quality: config.quality,
+          max_bytes: config.max_bytes
+        }.each do |key, value|
+          next if value.nil?
+          next if params.key?(key) || params.key?(key.to_s)
+
+          params[key] = value
+        end
+
+        params
       end
 
       def validate_payload!(payload)

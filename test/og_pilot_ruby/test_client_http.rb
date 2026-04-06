@@ -52,7 +52,10 @@ class TestClientHttp < Minitest::Test
           {
             template: "page",
             title: "Hello OG Pilot",
-            path: "/docs"
+            path: "/docs",
+            image_type: "webp",
+            quality: 82,
+            max_bytes: 220_000
           },
           iat: 1_700_000_000,
           headers: { "X-Test" => "1" }
@@ -82,6 +85,9 @@ class TestClientHttp < Minitest::Test
     assert_equal "Hello OG Pilot", jwt_call[:payload][:title]
     assert_equal "page", jwt_call[:payload][:template]
     assert_equal "/docs", jwt_call[:payload][:path]
+    assert_equal "webp", jwt_call[:payload][:image_type]
+    assert_equal 82, jwt_call[:payload][:quality]
+    assert_equal 220_000, jwt_call[:payload][:max_bytes]
   end
 
   def test_create_image_with_json_posts_and_parses_response
@@ -111,6 +117,71 @@ class TestClientHttp < Minitest::Test
     assert_instance_of Net::HTTP::Post, request
     assert_equal "/api/v1/images?token=json-token", request.path
     assert_equal "application/json", request["Accept"]
+  end
+
+  def test_create_image_applies_configured_image_delivery_defaults
+    response = build_response(Net::HTTPOK, code: 200, message: "OK", body: "")
+    fake_http = FakeHttp.new([response])
+    jwt_call = {}
+
+    OgPilotRuby.configure do |config|
+      config.image_type = "webp"
+      config.quality = 82
+      config.max_bytes = 220_000
+    end
+
+    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+      with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, lambda { |payload, _api_key|
+        jwt_call[:payload] = payload
+        "delivery-defaults-token"
+      }) do
+        result = @client.create_image(
+          {
+            title: "Configured delivery defaults",
+            path: "/docs"
+          }
+        )
+
+        assert_equal "https://ogpilot.com/api/v1/images?token=delivery-defaults-token", result
+      end
+    end
+
+    assert_equal "webp", jwt_call[:payload][:image_type]
+    assert_equal 82, jwt_call[:payload][:quality]
+    assert_equal 220_000, jwt_call[:payload][:max_bytes]
+  end
+
+  def test_create_image_prefers_explicit_delivery_options_over_configured_defaults
+    response = build_response(Net::HTTPOK, code: 200, message: "OK", body: "")
+    fake_http = FakeHttp.new([response])
+    jwt_call = {}
+
+    OgPilotRuby.configure do |config|
+      config.image_type = "webp"
+      config.quality = 82
+      config.max_bytes = 220_000
+    end
+
+    with_stubbed_singleton_method(Net::HTTP, :new, ->(_host, _port) { fake_http }) do
+      with_stubbed_singleton_method(OgPilotRuby::JwtEncoder, :encode, lambda { |payload, _api_key|
+        jwt_call[:payload] = payload
+        "delivery-override-token"
+      }) do
+        @client.create_image(
+          {
+            title: "Explicit delivery overrides",
+            path: "/docs",
+            image_type: "png",
+            quality: 65,
+            max_bytes: 180_000
+          }
+        )
+      end
+    end
+
+    assert_equal "png", jwt_call[:payload][:image_type]
+    assert_equal 65, jwt_call[:payload][:quality]
+    assert_equal 180_000, jwt_call[:payload][:max_bytes]
   end
 
   def test_create_image_without_location_falls_back_to_signed_uri
